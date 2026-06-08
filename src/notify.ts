@@ -1,22 +1,30 @@
-import type { WASocket } from '@whiskeysockets/baileys';
+import { jidNormalizedUser, type WASocket } from '@whiskeysockets/baileys';
 import { logger } from './logger.js';
 import { markProcessed } from './db.js';
+import { config } from './config.js';
 
 /**
- * Build a reminder deliverer. Always console.logs the text. If a live socket + the
- * user's own JID are provided, it ALSO sends the text to the user's own WhatsApp chat
- * and marks the echoed message id processed (so the listener's dedup ignores our own
- * reminder, preventing a feedback loop). Never throws.
+ * Build a reminder/ack deliverer. Always console.logs. With a live socket it sends ONLY to the
+ * linked account's own number (derived from the socket — callers cannot target anyone else), and
+ * only if that number matches SELF_NUMBER when configured. Marks the echo processed. Never throws.
  */
-export function makeDeliver(sock?: WASocket, selfJid?: string) {
+export function makeDeliver(sock?: WASocket) {
   return async (text: string): Promise<void> => {
     console.log(text);
     try {
-      if (sock && selfJid) {
-        const sent = await sock.sendMessage(selfJid, { text });
-        const id = sent?.key?.id ?? undefined;
-        if (id) await markProcessed(id);
+      if (!sock) return;
+      const ownId = sock.user?.id;
+      if (!ownId) { logger.warn('makeDeliver: socket has no user id; skipping WhatsApp send'); return; }
+      const ownJid = jidNormalizedUser(ownId);
+      const ownNumber = ownJid.split('@')[0];
+      if (config.SELF_NUMBER && ownNumber !== config.SELF_NUMBER) {
+        logger.error({ ownNumber, expected: config.SELF_NUMBER },
+          'REFUSING WhatsApp send: linked account is not the configured SELF_NUMBER (only the owner may be messaged)');
+        return;
       }
+      const sent = await sock.sendMessage(ownJid, { text });
+      const id = sent?.key?.id;
+      if (id) await markProcessed(id);
     } catch (err) {
       logger.error({ err }, 'reminder delivery via WhatsApp failed');
     }

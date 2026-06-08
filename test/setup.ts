@@ -4,6 +4,7 @@ process.env.ANTHROPIC_API_KEY ??= 'test-key';
 process.env.DATABASE_URL ??= 'postgres://test/test';
 process.env.TIMEZONE ??= 'Asia/Kolkata';
 process.env.LOG_LEVEL ??= 'silent';
+process.env.SELF_NUMBER ??= '15550001111';
 
 const mem = newDb();
 const { Pool } = mem.adapters.createPg();

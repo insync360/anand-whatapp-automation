@@ -163,7 +163,7 @@ async function connect(): Promise<void> {
           liveSelfJid = jidNormalizedUser(sock.user.id);
           if (!schedulerStarted) {
             // Deliver resolves the live socket at fire time, not at scheduler-start.
-            startScheduler((text) => makeDeliver(liveSock, liveSelfJid)(text));
+            startScheduler((text) => makeDeliver(liveSock)(text));
             schedulerStarted = true;
             logger.info({ selfJid: liveSelfJid }, 'reminder delivery enabled (WhatsApp self-message)');
           }
@@ -174,7 +174,7 @@ async function connect(): Promise<void> {
               void drainOutbox({
                 getPending: () => getPendingOutbox(20),
                 markSent: markOutboxSent,
-                deliver: makeDeliver(s, j),
+                deliver: makeDeliver(s),
               }).catch((err) => logger.error({ err }, 'outbox drain failed'));
             }, config.OUTBOX_POLL_MS);
             outboxStarted = true;

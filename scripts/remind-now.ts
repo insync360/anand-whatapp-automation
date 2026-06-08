@@ -6,7 +6,6 @@
 import makeWASocket, {
   fetchLatestBaileysVersion,
   useMultiFileAuthState,
-  jidNormalizedUser,
 } from '@whiskeysockets/baileys';
 import { config } from '../src/config.js';
 import { logger } from '../src/logger.js';
@@ -28,8 +27,7 @@ let ran = false;
 sock.ev.on('connection.update', async (u) => {
   if (u.connection === 'open' && !ran && sock.user?.id) {
     ran = true;
-    const selfJid = jidNormalizedUser(sock.user.id);
-    const res = await runRemindersProd(makeDeliver(sock, selfJid));
+    const res = await runRemindersProd(makeDeliver(sock));
     logger.info(res, 'remind:now complete');
     setTimeout(() => process.exit(0), 1500); // allow the outbound send to flush
   }

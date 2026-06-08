@@ -15,6 +15,7 @@ const ConfigSchema = z.object({
   MODEL: z.string().min(1).default('claude-haiku-4-5-20251001'),
   TIMEZONE: z.string().min(1).default('Asia/Kolkata'),
   USER_NAME: z.string().min(1).default('Anand'),
+  SELF_NUMBER: z.string().regex(/^\d{8,15}$/).optional(),
   REMINDER_HOUR: z.coerce.number().int().min(0).max(23).default(8),
 
   // How often the listener drains the outbox (acks). Higher = less Neon chatter.
