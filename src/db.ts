@@ -63,6 +63,14 @@ export async function ensureSchema(): Promise<void> {
       payload_json TEXT,
       created_at BIGINT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS outbox (
+      id SERIAL PRIMARY KEY,
+      text TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent')),
+      created_at BIGINT NOT NULL,
+      sent_at BIGINT
+    );
+    CREATE INDEX IF NOT EXISTS idx_outbox_status ON outbox (status, id);
   `);
 }
 
@@ -163,4 +171,20 @@ export async function hasActiveFollowUp(chatJid: string, dueDate: string): Promi
 export async function logEvent(type: string, payload: unknown): Promise<void> {
   await getPool().query(`INSERT INTO events (type, payload_json, created_at) VALUES ($1,$2,$3)`,
     [type, payload === undefined ? null : JSON.stringify(payload), now()]);
+}
+
+export interface OutboxRow { id: number; text: string; status: 'pending' | 'sent'; created_at: number; sent_at: number | null; }
+
+export async function enqueueOutbox(text: string): Promise<number> {
+  const { rows } = await getPool().query(
+    `INSERT INTO outbox (text, status, created_at) VALUES ($1,'pending',$2) RETURNING id`, [text, now()]);
+  return rows[0].id as number;
+}
+export async function getPendingOutbox(limit = 20): Promise<OutboxRow[]> {
+  const { rows } = await getPool().query(
+    `SELECT * FROM outbox WHERE status='pending' ORDER BY id ASC LIMIT $1`, [limit]);
+  return rows as OutboxRow[];
+}
+export async function markOutboxSent(id: number): Promise<void> {
+  await getPool().query(`UPDATE outbox SET status='sent', sent_at=$1 WHERE id=$2`, [now(), id]);
 }
