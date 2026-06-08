@@ -1,0 +1,32 @@
+name: Deploy
+
+# Runs only after CI succeeds on main, on the self-hosted runner that lives on the
+# Oracle VM. The runner connects outbound to GitHub — no inbound port is opened.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: [self-hosted, oracle-a1]
+    steps:
+      - name: Pull latest and restart services
+        run: |
+          set -euo pipefail
+          if [ ! -d /opt/wa-app/.git ]; then
+            echo "::error::/opt/wa-app is not a git checkout on this runner"; exit 1
+          fi
+          cd /opt/wa-app
+          git fetch origin main
+          git reset --hard origin/main
+          npm ci
+          # .env and auth_info/ are gitignored, so they are untouched by the reset above.
+          sudo systemctl restart wa-listener wa-worker
+          echo "Deployed $(git rev-parse --short HEAD)"

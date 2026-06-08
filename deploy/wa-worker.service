@@ -1,0 +1,17 @@
+[Unit]
+Description=WhatsApp follow-up extraction worker (inbox -> Claude -> follow_ups)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=appuser
+WorkingDirectory=/opt/wa-app
+EnvironmentFile=/opt/wa-app/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm run start:worker
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
