@@ -36,6 +36,10 @@ const BACKOFF_MAX_MS = 30_000;
 let reconnectAttempts = 0;
 let connecting = false;
 let schedulerStarted = false;
+// The Baileys socket is recreated on every reconnect, so the reminder deliverer must
+// read the LIVE socket at fire time rather than capture one at scheduler-start.
+let liveSock: ReturnType<typeof makeWASocket> | undefined;
+let liveSelfJid: string | undefined;
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
@@ -150,12 +154,17 @@ async function connect(): Promise<void> {
 
       if (connection === 'open') {
         reconnectAttempts = 0;
-        logger.info('linked / listening (read-only)');
-        if (!schedulerStarted && sock.user?.id) {
-          const selfJid = jidNormalizedUser(sock.user.id);
-          startScheduler(makeDeliver(sock, selfJid));
-          schedulerStarted = true;
-          logger.info({ selfJid }, 'reminder delivery enabled (WhatsApp self-message)');
+        logger.info('linked / listening');
+        if (sock.user?.id) {
+          // Refresh the live socket on every (re)connect.
+          liveSock = sock;
+          liveSelfJid = jidNormalizedUser(sock.user.id);
+          if (!schedulerStarted) {
+            // Deliver resolves the live socket at fire time, not at scheduler-start.
+            startScheduler((text) => makeDeliver(liveSock, liveSelfJid)(text));
+            schedulerStarted = true;
+            logger.info({ selfJid: liveSelfJid }, 'reminder delivery enabled (WhatsApp self-message)');
+          }
         }
       }
 
