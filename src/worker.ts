@@ -7,6 +7,7 @@ import {
 import { extractFollowUp, todayInTz, type ExtractInput, type FollowUpResult } from './extractor.js';
 import { buildAck } from './ack.js';
 import { config } from './config.js';
+import { startCleanupCron, runCleanup } from './cleanup.js';
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 4000);
 const CONFIDENCE_THRESHOLD = 0.6;
@@ -84,6 +85,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   process.on('SIGINT', () => { logger.info('worker shutting down'); process.exit(0); });
   process.on('SIGTERM', () => { logger.info('worker shutting down'); process.exit(0); });
   void ensureSchema()
-    .then(() => runLoop())
+    .then(() => {
+      startCleanupCron();
+      void runCleanup().catch((err) => logger.error({ err }, 'startup cleanup failed'));
+      return runLoop();
+    })
     .catch((err) => { logger.error({ err }, 'failed to start worker'); process.exit(1); });
 }
