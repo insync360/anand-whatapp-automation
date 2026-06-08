@@ -60,4 +60,11 @@ describe('processRow', () => {
     expect((await getPool().query('SELECT COUNT(*)::int c FROM follow_ups')).rows[0].c).toBe(1);
     expect(await hasActiveFollowUp('jid-1@s.whatsapp.net', '2099-01-02')).toBe(true);
   });
+
+  it('does NOT dedupe two follow-ups with the same date but different times', async () => {
+    const r1 = await seedRow({ wa: 't1' }); const r2 = await seedRow({ wa: 't2' });
+    await processRow(r1, async () => ({ date: '2099-01-02', time: '20:00', context: 'call', confidence: 0.9 }));
+    await processRow(r2, async () => ({ date: '2099-01-02', time: '17:23', context: 'call', confidence: 0.9 }));
+    expect((await getPool().query('SELECT count(*)::int c FROM follow_ups')).rows[0].c).toBe(2);
+  });
 });

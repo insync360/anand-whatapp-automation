@@ -89,6 +89,13 @@ describe('follow_ups helpers', () => {
     await updateFollowUpStatus(id, 'done');
     expect(await hasActiveFollowUp('c9', '2099-01-02')).toBe(false);
   });
+
+  it('hasActiveFollowUp is time-aware: same date different time is not active', async () => {
+    await insertFollowUp({ chat_jid: 'ct', due_date: '2099-01-02', due_time: '20:00', context: 'x' });
+    expect(await hasActiveFollowUp('ct', '2099-01-02', '20:00')).toBe(true);
+    expect(await hasActiveFollowUp('ct', '2099-01-02', '17:23')).toBe(false);
+    expect(await hasActiveFollowUp('ct', '2099-01-02', null)).toBe(false);
+  });
 });
 
 describe('events', () => {

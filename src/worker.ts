@@ -26,7 +26,7 @@ export async function processRow(row: InboxRow, extract: ExtractFn = extractFoll
     return 'pending';
   }
   if (result) {
-    if (await hasActiveFollowUp(row.chat_jid, result.date)) {
+    if (await hasActiveFollowUp(row.chat_jid, result.date, result.time)) {
       logger.info({ chatJid: row.chat_jid, dueDate: result.date }, 'duplicate follow-up skipped');
     } else {
       const status = result.confidence >= CONFIDENCE_THRESHOLD ? 'pending' : 'needs_review';

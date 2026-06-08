@@ -161,10 +161,13 @@ export async function updateFollowUpStatus(
     [status, now(), opts.sentAt ?? null, id]);
 }
 
-export async function hasActiveFollowUp(chatJid: string, dueDate: string): Promise<boolean> {
+export async function hasActiveFollowUp(chatJid: string, dueDate: string, dueTime: string | null = null): Promise<boolean> {
   const { rows } = await getPool().query(
-    `SELECT 1 FROM follow_ups WHERE chat_jid=$1 AND due_date=$2 AND status NOT IN ('cancelled','done') LIMIT 1`,
-    [chatJid, dueDate]);
+    `SELECT 1 FROM follow_ups
+       WHERE chat_jid=$1 AND due_date=$2 AND status NOT IN ('cancelled','done')
+         AND (due_time = $3 OR (due_time IS NULL AND $3 IS NULL))
+     LIMIT 1`,
+    [chatJid, dueDate, dueTime]);
   return rows.length > 0;
 }
 
