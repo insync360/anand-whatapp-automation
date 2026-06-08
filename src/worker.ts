@@ -2,9 +2,11 @@ import { fileURLToPath } from 'node:url';
 import { logger } from './logger.js';
 import {
   getPendingInbox, getRecentMessagesForChat, insertFollowUp,
-  markInboxDone, logEvent, hasActiveFollowUp, ensureSchema, type InboxRow,
+  markInboxDone, logEvent, hasActiveFollowUp, ensureSchema, enqueueOutbox, type InboxRow,
 } from './db.js';
-import { extractFollowUp, type ExtractInput, type FollowUpResult } from './extractor.js';
+import { extractFollowUp, todayInTz, type ExtractInput, type FollowUpResult } from './extractor.js';
+import { buildAck } from './ack.js';
+import { config } from './config.js';
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 4000);
 const CONFIDENCE_THRESHOLD = 0.6;
@@ -34,6 +36,17 @@ export async function processRow(row: InboxRow, extract: ExtractFn = extractFoll
       });
       await logEvent('followup_captured', { followUpId: id, chatJid: row.chat_jid, dueDate: result.date, confidence: result.confidence, status });
       logger.info({ followUpId: id, dueDate: result.date, status }, 'follow-up captured');
+        await enqueueOutbox(
+          buildAck({
+            userName: config.USER_NAME,
+            contactName: row.contact_name,
+            dueDate: result.date,
+            dueTime: result.time,
+            context: result.context,
+            today: todayInTz(config.TIMEZONE),
+            status,
+          }),
+        );
     }
   }
   await markInboxDone(row.id);

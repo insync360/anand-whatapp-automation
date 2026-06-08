@@ -20,7 +20,8 @@ import qrcodeTerminal from 'qrcode-terminal';
 
 import { config } from './config.js';
 import { logger } from './logger.js';
-import { hasProcessed, insertInboxMessage, markProcessed, ensureSchema } from './db.js';
+import { hasProcessed, insertInboxMessage, markProcessed, ensureSchema, getPendingOutbox, markOutboxSent } from './db.js';
+import { drainOutbox } from './outbox.js';
 import { startScheduler } from './scheduler.js';
 import { makeDeliver } from './notify.js';
 
@@ -36,6 +37,7 @@ const BACKOFF_MAX_MS = 30_000;
 let reconnectAttempts = 0;
 let connecting = false;
 let schedulerStarted = false;
+let outboxStarted = false;
 // The Baileys socket is recreated on every reconnect, so the reminder deliverer must
 // read the LIVE socket at fire time rather than capture one at scheduler-start.
 let liveSock: ReturnType<typeof makeWASocket> | undefined;
@@ -164,6 +166,19 @@ async function connect(): Promise<void> {
             startScheduler((text) => makeDeliver(liveSock, liveSelfJid)(text));
             schedulerStarted = true;
             logger.info({ selfJid: liveSelfJid }, 'reminder delivery enabled (WhatsApp self-message)');
+          }
+          if (!outboxStarted) {
+            setInterval(() => {
+              const s = liveSock; const j = liveSelfJid;
+              if (!s || !j) return; // only drain while connected
+              void drainOutbox({
+                getPending: () => getPendingOutbox(20),
+                markSent: markOutboxSent,
+                deliver: makeDeliver(s, j),
+              }).catch((err) => logger.error({ err }, 'outbox drain failed'));
+            }, 5000);
+            outboxStarted = true;
+            logger.info('outbox poller started');
           }
         }
       }
