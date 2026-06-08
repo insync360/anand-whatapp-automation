@@ -20,7 +20,7 @@ const ConfigSchema = z.object({
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   TELEGRAM_CHAT_ID: z.string().optional(),
 
-  DB_PATH: z.string().min(1).default('./data/app.db'),
+  DATABASE_URL: z.string().url('DATABASE_URL must be a valid Postgres connection string'),
   AUTH_DIR: z.string().min(1).default('./auth_info'),
 
   LOG_LEVEL: z
