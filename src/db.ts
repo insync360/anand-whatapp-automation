@@ -188,3 +188,12 @@ export async function getPendingOutbox(limit = 20): Promise<OutboxRow[]> {
 export async function markOutboxSent(id: number): Promise<void> {
   await getPool().query(`UPDATE outbox SET status='sent', sent_at=$1 WHERE id=$2`, [now(), id]);
 }
+
+export async function purgeOlderThan(cutoffUnix: number): Promise<{ inbox: number; processed: number; events: number; outbox: number }> {
+  const pool = getPool();
+  const inbox = (await pool.query(`DELETE FROM inbox WHERE ts_unix < $1`, [cutoffUnix])).rowCount ?? 0;
+  const processed = (await pool.query(`DELETE FROM processed_messages WHERE seen_at < $1`, [cutoffUnix])).rowCount ?? 0;
+  const events = (await pool.query(`DELETE FROM events WHERE created_at < $1`, [cutoffUnix])).rowCount ?? 0;
+  const outbox = (await pool.query(`DELETE FROM outbox WHERE status='sent' AND sent_at < $1`, [cutoffUnix])).rowCount ?? 0;
+  return { inbox, processed, events, outbox };
+}

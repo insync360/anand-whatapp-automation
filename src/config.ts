@@ -19,6 +19,8 @@ const ConfigSchema = z.object({
 
   // How often the listener drains the outbox (acks). Higher = less Neon chatter.
   OUTBOX_POLL_MS: z.coerce.number().int().positive().default(5000),
+  RETENTION_DAYS: z.coerce.number().int().positive().default(30),
+  CLEANUP_HOUR: z.coerce.number().int().min(0).max(23).default(3),
 
   // Telegram delivery — required by the scheduler phase, optional for now.
   TELEGRAM_BOT_TOKEN: z.string().optional(),
