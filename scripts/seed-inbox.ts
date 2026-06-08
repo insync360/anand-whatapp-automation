@@ -1,4 +1,4 @@
-import { insertInboxMessage } from '../src/db.js';
+import { insertInboxMessage, ensureSchema } from '../src/db.js';
 import { logger } from '../src/logger.js';
 
 const now = Math.floor(Date.now() / 1000);
@@ -11,5 +11,6 @@ const samples = [
     from_me: false, text: 'Haha 😂 that movie was hilarious, loved the ending!', ts_unix: now },
 ];
 
-for (const m of samples) insertInboxMessage(m);
+await ensureSchema();
+for (const m of samples) await insertInboxMessage(m);
 logger.info(`seeded ${samples.length} inbox messages`);

@@ -18,7 +18,7 @@ import qrcodeTerminal from 'qrcode-terminal';
 
 import { config } from './config.js';
 import { logger } from './logger.js';
-import { hasProcessed, insertInboxMessage, markProcessed } from './db.js';
+import { hasProcessed, insertInboxMessage, markProcessed, ensureSchema } from './db.js';
 
 // Quiet child logger for Baileys' own internals so it doesn't drown our logs.
 const waLogger = logger.child({ module: 'baileys' }, { level: 'warn' });
@@ -73,7 +73,7 @@ function isNonPersonalChat(jid: string): boolean {
 /* Message ingestion                                                  */
 /* ------------------------------------------------------------------ */
 
-function handleMessage(msg: WAMessage): void {
+async function handleMessage(msg: WAMessage): Promise<void> {
   const jid = msg.key.remoteJid;
   if (!jid || isNonPersonalChat(jid)) return;
 
@@ -90,11 +90,11 @@ function handleMessage(msg: WAMessage): void {
   if (!waId) return;
 
   // Dedup against the durable ledger.
-  if (hasProcessed(waId)) return;
+  if (await hasProcessed(waId)) return;
 
   const tsUnix = tsToUnix(msg.messageTimestamp);
 
-  insertInboxMessage({
+  await insertInboxMessage({
     wa_message_id: waId,
     chat_jid: jid,
     contact_name: contactName,
@@ -102,7 +102,7 @@ function handleMessage(msg: WAMessage): void {
     text,
     ts_unix: tsUnix,
   });
-  markProcessed(waId);
+  await markProcessed(waId);
 
   logger.info(
     {
@@ -175,13 +175,12 @@ async function connect(): Promise<void> {
     });
 
     // The ONLY ingestion path. 'notify' = live messages; ignore history sync.
-    sock.ev.on('messages.upsert', (upsert) => {
+    sock.ev.on('messages.upsert', async (upsert) => {
       if (upsert.type !== 'notify') return;
       for (const msg of upsert.messages) {
         try {
-          handleMessage(msg);
+          await handleMessage(msg);
         } catch (err) {
-          // Never crash the listener on a single bad message.
           logger.error({ err, key: msg.key }, 'failed to process message');
         }
       }
@@ -198,4 +197,4 @@ async function connect(): Promise<void> {
 }
 
 logger.info('starting WhatsApp listener (read-only)…');
-void connect();
+void ensureSchema().then(() => connect());
