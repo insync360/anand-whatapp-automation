@@ -161,6 +161,18 @@ async function connect(): Promise<void> {
           // Refresh the live socket on every (re)connect.
           liveSock = sock;
           liveSelfJid = jidNormalizedUser(sock.user.id);
+          // Connect-time guardrail check so a SELF_NUMBER misconfig is caught NOW, not at first send.
+          const linkedNumber = liveSelfJid.split('@')[0];
+          if (!config.SELF_NUMBER) {
+            logger.warn({ linkedNumber }, 'SELF_NUMBER is not set — delivering to the linked self-chat (wrong-account check disabled)');
+          } else if (linkedNumber !== config.SELF_NUMBER) {
+            logger.error(
+              { linkedNumber, expected: config.SELF_NUMBER },
+              'SELF_NUMBER MISMATCH — all WhatsApp sends will be REFUSED. Set SELF_NUMBER in .env to the linked number (or unset it) and restart.',
+            );
+          } else {
+            logger.info({ number: linkedNumber }, 'delivery armed: linked account matches SELF_NUMBER');
+          }
           if (!schedulerStarted) {
             // Deliver resolves the live socket at fire time, not at scheduler-start.
             startScheduler((text) => makeDeliver(liveSock)(text));

@@ -67,7 +67,13 @@ TIMEZONE=Asia/Kolkata
 REMINDER_HOUR=8
 WORKER_POLL_MS=10000
 OUTBOX_POLL_MS=10000
+SELF_NUMBER=
 ```
+**`SELF_NUMBER`** is the safety allowlist — the app only ever messages this one number (its own
+self-chat). It MUST equal the WhatsApp number you link in step 7. You don't know it until you scan,
+so leave it blank for now and set it right after the QR scan (step 7a). If you leave it blank
+permanently, the app still only ever messages whatever number is linked (self-chat) — you just lose
+the "is this the right account?" check.
 
 ## 6. Register the GitHub Actions self-hosted runner
 Get a registration token (needs `gh` authed with admin on the repo, or use the GitHub UI:
@@ -97,9 +103,21 @@ sudo -iu appuser
 cd /opt/wa-app
 npm run start:listener            # a QR prints in the terminal
 # Scan it: WhatsApp > Settings > Linked Devices > Link a Device
-# Wait for "linked / listening", then Ctrl+C. Credentials persist in /opt/wa-app/auth_info/.
+# Wait for "linked / listening". Note the log line — it prints the linked number, e.g.:
+#   "SELF_NUMBER is not set ... linkedNumber: 919812345678"   (or "delivery armed ... number: ...")
+# Copy that linkedNumber. Then Ctrl+C. Credentials persist in /opt/wa-app/auth_info/.
 exit
 ```
+
+## 7a. Set SELF_NUMBER to the linked number
+Put the number you just saw into `.env` so the app's allowlist matches the linked account:
+```bash
+sudo -u appuser sed -i 's/^SELF_NUMBER=.*/SELF_NUMBER=<linkedNumber>/' /opt/wa-app/.env
+```
+On the next start, the listener log should say **`delivery armed: linked account matches SELF_NUMBER`**.
+If it instead logs **`SELF_NUMBER MISMATCH ... sends will be REFUSED`**, the number is wrong — fix it
+and restart. (Leaving `SELF_NUMBER` blank is also fine — it then targets whatever is linked, without
+the wrong-account check.)
 
 ## 8. Start the services
 ```bash
