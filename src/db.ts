@@ -1,12 +1,18 @@
 import pg from 'pg';
 import { config } from './config.js';
+import { logger } from './logger.js';
 
 // int8 (BIGINT) → JS number; our magnitudes (unix seconds, serial ids) are within Number range.
 pg.types.setTypeParser(20, (v) => (v === null ? null : parseInt(v, 10)));
 
 let pool: pg.Pool | undefined;
 export function getPool(): pg.Pool {
-  if (!pool) pool = new pg.Pool({ connectionString: config.DATABASE_URL });
+  if (!pool) {
+    pool = new pg.Pool({ connectionString: config.DATABASE_URL });
+    // Neon suspends idle computes and drops idle connections; without this handler an
+    // idle-client disconnect would surface as an unhandled error and crash the process.
+    pool.on('error', (err) => logger.error({ err }, 'idle pg client error'));
+  }
   return pool;
 }
 /** Test seam: inject a pg-mem (or other) pool. */
