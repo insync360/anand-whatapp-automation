@@ -83,6 +83,13 @@ export async function extractFollowUp(
   const resp = await client.messages.create({
     model: config.MODEL,
     max_tokens: 300,
+    // Prompt caching is wired up, but it only engages once the cached prefix exceeds
+    // Haiku's ~2048-token minimum. Our SYSTEM_PROMPT is ~455 tokens, so today this
+    // cache_control is a harmless no-op (the API ignores it, no error). Real cost
+    // control here comes from Haiku + max_tokens + the 6-message window. The marker
+    // stays so caching kicks in automatically if the prompt/examples grow later.
+    // `as any`: SDK 0.32 types cache_control only under beta.messages, but the stable
+    // endpoint accepts it at runtime.
     system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }] as any,
     messages: [{ role: 'user', content: userContent }],
   });
