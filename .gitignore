@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+
+# secrets
+.env
+
+# database (sqlite + WAL/SHM sidecars)
+*.db
+*.db-*
+data/
+
+# WhatsApp multi-file auth state
+auth_info/
+
+# logs / os
+*.log
+.DS_Store
