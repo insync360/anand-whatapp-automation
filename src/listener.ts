@@ -1,14 +1,16 @@
 /**
- * Phase 2 — WhatsApp listener (STRICTLY READ-ONLY).
+ * Phase 2 — WhatsApp listener (capture read-only + daily reminder digest).
  *
  * Links as a WhatsApp device, captures incoming/outgoing 1:1 text messages,
- * and pushes them into the `inbox` queue. It NEVER sends anything on WhatsApp:
- * no sendMessage, typing, presence, receipts, or reactions are imported or
- * called anywhere in this file.
+ * and pushes them into the `inbox` queue. Message capture is strictly read-only:
+ * no typing, presence, receipts, or reactions are used. The ONE exception is the
+ * daily reminder digest, which is sent to the user's OWN number (self-chat) only.
+ * No messages are ever sent to contacts.
  */
 import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
+  jidNormalizedUser,
   useMultiFileAuthState,
   type WAMessage,
   type WAMessageContent,
@@ -19,6 +21,8 @@ import qrcodeTerminal from 'qrcode-terminal';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { hasProcessed, insertInboxMessage, markProcessed, ensureSchema } from './db.js';
+import { startScheduler } from './scheduler.js';
+import { makeDeliver } from './notify.js';
 
 // Quiet child logger for Baileys' own internals so it doesn't drown our logs.
 const waLogger = logger.child({ module: 'baileys' }, { level: 'warn' });
@@ -31,6 +35,7 @@ const BACKOFF_BASE_MS = 1_000;
 const BACKOFF_MAX_MS = 30_000;
 let reconnectAttempts = 0;
 let connecting = false;
+let schedulerStarted = false;
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
@@ -146,6 +151,12 @@ async function connect(): Promise<void> {
       if (connection === 'open') {
         reconnectAttempts = 0;
         logger.info('linked / listening (read-only)');
+        if (!schedulerStarted && sock.user?.id) {
+          const selfJid = jidNormalizedUser(sock.user.id);
+          startScheduler(makeDeliver(sock, selfJid));
+          schedulerStarted = true;
+          logger.info({ selfJid }, 'reminder delivery enabled (WhatsApp self-message)');
+        }
       }
 
       if (connection === 'close') {

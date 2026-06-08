@@ -13,6 +13,7 @@
     "start:listener": "tsx src/listener.ts",
     "seed": "tsx scripts/seed-inbox.ts",
     "start:worker": "tsx src/worker.ts",
+    "remind:now": "tsx scripts/remind-now.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
