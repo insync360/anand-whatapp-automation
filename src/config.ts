@@ -17,6 +17,9 @@ const ConfigSchema = z.object({
   USER_NAME: z.string().min(1).default('Anand'),
   REMINDER_HOUR: z.coerce.number().int().min(0).max(23).default(8),
 
+  // How often the listener drains the outbox (acks). Higher = less Neon chatter.
+  OUTBOX_POLL_MS: z.coerce.number().int().positive().default(5000),
+
   // Telegram delivery — required by the scheduler phase, optional for now.
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   TELEGRAM_CHAT_ID: z.string().optional(),

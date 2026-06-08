@@ -176,9 +176,9 @@ async function connect(): Promise<void> {
                 markSent: markOutboxSent,
                 deliver: makeDeliver(s, j),
               }).catch((err) => logger.error({ err }, 'outbox drain failed'));
-            }, 5000);
+            }, config.OUTBOX_POLL_MS);
             outboxStarted = true;
-            logger.info('outbox poller started');
+            logger.info({ pollMs: config.OUTBOX_POLL_MS }, 'outbox poller started');
           }
         }
       }
