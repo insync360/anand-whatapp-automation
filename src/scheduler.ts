@@ -30,6 +30,9 @@ export async function runReminders(deps: ReminderDeps): Promise<{ count: number;
   const due = await deps.getDue(deps.today);
   if (due.length === 0) { logger.info('no follow-ups due'); return { count: 0, delivered: false }; }
   await deps.deliver(buildDigest(deps.today, due));
+  // Deliver never throws; we mark rows 'sent' regardless of WhatsApp send success.
+  // Intentional for a single-user digest: the digest is also always printed to console,
+  // and not marking would re-send the whole digest on every cron tick.
   for (const f of due) {
     await deps.markSent(f.id, deps.now);
     await deps.logEvent('reminder_sent', { followUpId: f.id, dueDate: f.due_date });
@@ -43,6 +46,7 @@ export function runRemindersProd(deliver: (text: string) => Promise<void>) {
   return runReminders({
     today: todayInTz(config.TIMEZONE),
     now: Math.floor(Date.now() / 1000),
+    // getDueFollowUps also returns 'snoozed'; per spec the digest is pending/confirmed only.
     getDue: async (t) => (await getDueFollowUps(t)).filter((f) => f.status === 'pending' || f.status === 'confirmed'),
     markSent: (id, sentAt) => updateFollowUpStatus(id, 'sent', { sentAt }),
     deliver,

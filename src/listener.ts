@@ -170,6 +170,7 @@ async function connect(): Promise<void> {
 
       if (connection === 'close') {
         connecting = false;
+        liveSock = undefined; // degrade reminders to console-only until the next 'open'
         const statusCode = (lastDisconnect?.error as Boom | undefined)?.output?.statusCode;
 
         if (statusCode === DisconnectReason.loggedOut) {

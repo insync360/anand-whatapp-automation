@@ -49,6 +49,6 @@ wait safely and are processed on restart. Everything is idempotent.
 
 ## Conventions
 - ESM. Small modules in `src/`. Each long-running role has its own entry script.
-- Wrap external calls (Baileys, Anthropic, Telegram) in try/catch; never crash
+- Wrap external calls (Baileys, Anthropic, WhatsApp send) in try/catch; never crash
   the process on a single bad message.
 - Use the message timestamp + configured timezone to resolve relative dates.
