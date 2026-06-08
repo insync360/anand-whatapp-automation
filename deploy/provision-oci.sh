@@ -5,7 +5,7 @@
 #
 # Prereqs:
 #   - OCI CLI installed and authenticated:  oci session authenticate   (or ~/.oci/config)
-#   - jq installed
+#     (session-token auth: export OCI_CLI_AUTH=security_token before running)
 #   - An SSH public key
 #
 # Required environment variables (export before running):
@@ -45,16 +45,13 @@ IG_ID=$(oci network internet-gateway create --compartment-id "$COMPARTMENT_ID" -
   --is-enabled true --display-name wa-ig --wait-for-state AVAILABLE --query 'data.id' --raw-output)
 
 echo "==> Creating route table (default route -> internet gateway)"
+ROUTE_RULES="[{\"destination\":\"0.0.0.0/0\",\"destinationType\":\"CIDR_BLOCK\",\"networkEntityId\":\"$IG_ID\"}]"
 RT_ID=$(oci network route-table create --compartment-id "$COMPARTMENT_ID" --vcn-id "$VCN_ID" \
-  --display-name wa-rt \
-  --route-rules "$(jq -nc --arg ig "$IG_ID" '[{destination:"0.0.0.0/0",destinationType:"CIDR_BLOCK",networkEntityId:$ig}]')" \
+  --display-name wa-rt --route-rules "$ROUTE_RULES" \
   --wait-for-state AVAILABLE --query 'data.id' --raw-output)
 
 echo "==> Creating security list (ingress: SSH from ${MY_IP}/32 only; egress: all)"
-INGRESS=$(jq -nc --arg ip "${MY_IP}/32" '[{
-  protocol:"6", source:$ip, isStateless:false,
-  tcpOptions:{destinationPortRange:{min:22,max:22}}
-}]')
+INGRESS="[{\"protocol\":\"6\",\"source\":\"${MY_IP}/32\",\"isStateless\":false,\"tcpOptions\":{\"destinationPortRange\":{\"min\":22,\"max\":22}}}]"
 EGRESS='[{"protocol":"all","destination":"0.0.0.0/0","isStateless":false}]'
 SL_ID=$(oci network security-list create --compartment-id "$COMPARTMENT_ID" --vcn-id "$VCN_ID" \
   --display-name wa-sl --ingress-security-rules "$INGRESS" --egress-security-rules "$EGRESS" \
@@ -76,7 +73,7 @@ echo "==> Launching ${VM_NAME} (A1.Flex ${OCPUS} OCPU / ${MEMORY_GB} GB / ${BOOT
 INSTANCE_ID=$(oci compute instance launch \
   --compartment-id "$COMPARTMENT_ID" --availability-domain "$AD" \
   --shape "VM.Standard.A1.Flex" \
-  --shape-config "$(jq -nc --argjson o "$OCPUS" --argjson m "$MEMORY_GB" '{ocpus:$o,memoryInGBs:$m}')" \
+  --shape-config "{\"ocpus\":$OCPUS,\"memoryInGBs\":$MEMORY_GB}" \
   --image-id "$IMAGE_ID" --subnet-id "$SUBNET_ID" --assign-public-ip true \
   --boot-volume-size-in-gbs "$BOOT_GB" \
   --ssh-authorized-keys-file "$SSH_PUBKEY" \

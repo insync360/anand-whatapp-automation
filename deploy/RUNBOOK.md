@@ -32,6 +32,7 @@ curl -s https://ifconfig.me ; echo
 ## 3. Provision the VM
 ```bash
 cd /path/to/anand-whatapp-automation
+export OCI_CLI_AUTH=security_token                   # required after `oci session authenticate`
 export COMPARTMENT_ID=ocid1.compartment.oc1..xxxx   # or tenancy OCID
 export AD="abCD:AP-MUMBAI-1-AD-1"                    # from step 2
 export SSH_PUBKEY=~/.ssh/id_ed25519.pub
