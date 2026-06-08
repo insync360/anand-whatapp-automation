@@ -28,5 +28,5 @@ jobs:
           git reset --hard origin/main
           npm ci
           # .env and auth_info/ are gitignored, so they are untouched by the reset above.
-          sudo systemctl restart wa-listener wa-worker
+          sudo /usr/bin/systemctl restart wa-listener wa-worker
           echo "Deployed $(git rev-parse --short HEAD)"

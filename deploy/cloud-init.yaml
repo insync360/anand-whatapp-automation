@@ -20,9 +20,8 @@ write_files:
       appuser ALL=(root) NOPASSWD: /usr/bin/systemctl restart wa-listener wa-worker, /usr/bin/systemctl restart wa-listener, /usr/bin/systemctl restart wa-worker
 
 runcmd:
-  # Node 20 (NodeSource, arm64)
-  - [ bash, -c, "curl -fsSL https://deb.nodesource.com/setup_20.x | bash -" ]
-  - [ bash, -c, "apt-get install -y nodejs" ]
+  # Node 20 (NodeSource, arm64) — install in one step so the repo+update are fresh
+  - [ bash, -c, "curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs" ]
   # App user + checkout
   - [ bash, -c, "id -u appuser >/dev/null 2>&1 || useradd -m -s /bin/bash appuser" ]
   - [ bash, -c, "git clone https://github.com/insync360/anand-whatapp-automation.git /opt/wa-app" ]
