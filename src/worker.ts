@@ -4,7 +4,6 @@ import {
   getPendingInbox, getRecentMessagesForChat, insertFollowUp,
   markInboxDone, logEvent, hasActiveFollowUp, ensureSchema, type InboxRow,
 } from './db.js';
-export { hasActiveFollowUp } from './db.js';
 import { extractFollowUp, type ExtractInput, type FollowUpResult } from './extractor.js';
 
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 4000);
@@ -71,5 +70,7 @@ export async function runLoop(): Promise<void> {
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   process.on('SIGINT', () => { logger.info('worker shutting down'); process.exit(0); });
   process.on('SIGTERM', () => { logger.info('worker shutting down'); process.exit(0); });
-  void ensureSchema().then(() => runLoop());
+  void ensureSchema()
+    .then(() => runLoop())
+    .catch((err) => { logger.error({ err }, 'failed to start worker'); process.exit(1); });
 }

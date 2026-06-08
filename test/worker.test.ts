@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { ensureSchema, getPool, insertInboxMessage, getPendingInbox } from '../src/db.js';
-import { processRow, hasActiveFollowUp } from '../src/worker.js';
+import { ensureSchema, getPool, insertInboxMessage, getPendingInbox, hasActiveFollowUp } from '../src/db.js';
+import { processRow } from '../src/worker.js';
 import type { InboxRow } from '../src/db.js';
 
 async function seedRow(over: Partial<{ wa: string; jid: string; name: string; text: string }> = {}): Promise<InboxRow> {

@@ -197,4 +197,6 @@ async function connect(): Promise<void> {
 }
 
 logger.info('starting WhatsApp listener (read-only)…');
-void ensureSchema().then(() => connect());
+void ensureSchema()
+  .then(() => connect())
+  .catch((err) => { logger.error({ err }, 'failed to start listener'); process.exit(1); });
