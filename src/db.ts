@@ -59,3 +59,102 @@ export async function ensureSchema(): Promise<void> {
     );
   `);
 }
+
+const now = () => Math.floor(Date.now() / 1000);
+
+export type InboxStatus = 'pending' | 'done' | 'error';
+export type FollowUpStatus = 'pending'|'needs_review'|'confirmed'|'sent'|'done'|'cancelled'|'snoozed';
+
+export interface InboxRow {
+  id: number; wa_message_id: string; chat_jid: string; contact_name: string | null;
+  from_me: boolean; text: string; ts_unix: number; status: InboxStatus; created_at: number;
+}
+export interface NewInboxMessage {
+  wa_message_id: string; chat_jid: string; contact_name?: string | null;
+  from_me: boolean; text: string; ts_unix: number;
+}
+export interface FollowUpRow {
+  id: number; chat_jid: string; contact_name: string | null; due_date: string; due_time: string | null;
+  context: string; source_wa_message_id: string | null; confidence: number | null;
+  status: FollowUpStatus; created_at: number; updated_at: number; sent_at: number | null;
+}
+export interface NewFollowUp {
+  chat_jid: string; contact_name?: string | null; due_date: string; due_time?: string | null;
+  context: string; source_wa_message_id?: string | null; confidence?: number | null; status?: FollowUpStatus;
+}
+
+export async function insertInboxMessage(m: NewInboxMessage): Promise<number> {
+  const ins = await getPool().query(
+    `INSERT INTO inbox (wa_message_id, chat_jid, contact_name, from_me, text, ts_unix, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     ON CONFLICT (wa_message_id) DO NOTHING RETURNING id`,
+    [m.wa_message_id, m.chat_jid, m.contact_name ?? null, m.from_me, m.text, m.ts_unix, now()],
+  );
+  if (ins.rows[0]) return ins.rows[0].id as number;
+  const ex = await getPool().query(`SELECT id FROM inbox WHERE wa_message_id = $1`, [m.wa_message_id]);
+  return (ex.rows[0]?.id as number) ?? 0;
+}
+
+export async function getPendingInbox(limit = 50): Promise<InboxRow[]> {
+  const { rows } = await getPool().query(
+    `SELECT * FROM inbox WHERE status='pending' ORDER BY id ASC LIMIT $1`, [limit]);
+  return rows as InboxRow[];
+}
+
+export async function markInboxDone(id: number, status: InboxStatus = 'done'): Promise<void> {
+  await getPool().query(`UPDATE inbox SET status=$1 WHERE id=$2`, [status, id]);
+}
+
+export async function hasProcessed(waMessageId: string): Promise<boolean> {
+  const { rows } = await getPool().query(`SELECT 1 FROM processed_messages WHERE wa_message_id=$1`, [waMessageId]);
+  return rows.length > 0;
+}
+
+export async function markProcessed(waMessageId: string): Promise<void> {
+  await getPool().query(
+    `INSERT INTO processed_messages (wa_message_id, seen_at) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+    [waMessageId, now()]);
+}
+
+export async function getRecentMessagesForChat(chatJid: string, limit = 20): Promise<InboxRow[]> {
+  const { rows } = await getPool().query(
+    `SELECT * FROM inbox WHERE chat_jid=$1 ORDER BY ts_unix DESC, id DESC LIMIT $2`, [chatJid, limit]);
+  return (rows as InboxRow[]).reverse();
+}
+
+export async function insertFollowUp(fu: NewFollowUp): Promise<number> {
+  const t = now();
+  const { rows } = await getPool().query(
+    `INSERT INTO follow_ups
+      (chat_jid, contact_name, due_date, due_time, context, source_wa_message_id, confidence, status, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9) RETURNING id`,
+    [fu.chat_jid, fu.contact_name ?? null, fu.due_date, fu.due_time ?? null, fu.context,
+     fu.source_wa_message_id ?? null, fu.confidence ?? null, fu.status ?? 'pending', t]);
+  return rows[0].id as number;
+}
+
+export async function getDueFollowUps(dateStr: string): Promise<FollowUpRow[]> {
+  const { rows } = await getPool().query(
+    `SELECT * FROM follow_ups WHERE due_date <= $1 AND status IN ('pending','confirmed','snoozed')
+     ORDER BY due_date ASC, id ASC`, [dateStr]);
+  return rows as FollowUpRow[];
+}
+
+export async function updateFollowUpStatus(
+  id: number, status: FollowUpStatus, opts: { sentAt?: number } = {}): Promise<void> {
+  await getPool().query(
+    `UPDATE follow_ups SET status=$1, updated_at=$2, sent_at=COALESCE($3, sent_at) WHERE id=$4`,
+    [status, now(), opts.sentAt ?? null, id]);
+}
+
+export async function hasActiveFollowUp(chatJid: string, dueDate: string): Promise<boolean> {
+  const { rows } = await getPool().query(
+    `SELECT 1 FROM follow_ups WHERE chat_jid=$1 AND due_date=$2 AND status NOT IN ('cancelled','done') LIMIT 1`,
+    [chatJid, dueDate]);
+  return rows.length > 0;
+}
+
+export async function logEvent(type: string, payload: unknown): Promise<void> {
+  await getPool().query(`INSERT INTO events (type, payload_json, created_at) VALUES ($1,$2,$3)`,
+    [type, payload === undefined ? null : JSON.stringify(payload), now()]);
+}
