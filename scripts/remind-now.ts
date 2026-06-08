@@ -14,6 +14,10 @@ import { ensureSchema } from '../src/db.js';
 import { makeDeliver } from '../src/notify.js';
 import { runRemindersProd } from '../src/scheduler.js';
 
+// Hard safety net: a one-shot must never hang (e.g. if the socket is replaced
+// mid-send and sendMessage stalls). Always terminate.
+setTimeout(() => { logger.error('remind:now timed out after 30s — exiting'); process.exit(1); }, 30_000);
+
 await ensureSchema();
 const { version } = await fetchLatestBaileysVersion();
 const { state, saveCreds } = await useMultiFileAuthState(config.AUTH_DIR);
