@@ -55,8 +55,14 @@ export async function runLoop(): Promise<void> {
   logger.info({ pollMs: POLL_MS }, 'extraction worker started');
   for (;;) {
     let hadError = false;
-    for (const row of getPendingInbox(20)) {
-      if ((await processRow(row)) === 'pending') { hadError = true; break; }
+    try {
+      for (const row of getPendingInbox(20)) {
+        if ((await processRow(row)) === 'pending') { hadError = true; break; }
+      }
+    } catch (err) {
+      // Never crash the worker on an unexpected (e.g. DB) error — log, back off, retry.
+      logger.error({ err }, 'unexpected worker loop error; backing off');
+      hadError = true;
     }
     if (hadError) {
       failures += 1;
