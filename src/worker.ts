@@ -36,17 +36,17 @@ export async function processRow(row: InboxRow, extract: ExtractFn = extractFoll
       });
       await logEvent('followup_captured', { followUpId: id, chatJid: row.chat_jid, dueDate: result.date, confidence: result.confidence, status });
       logger.info({ followUpId: id, dueDate: result.date, status }, 'follow-up captured');
-        await enqueueOutbox(
-          buildAck({
-            userName: config.USER_NAME,
-            contactName: row.contact_name,
-            dueDate: result.date,
-            dueTime: result.time,
-            context: result.context,
-            today: todayInTz(config.TIMEZONE),
-            status,
-          }),
-        );
+      await enqueueOutbox(
+        buildAck({
+          userName: config.USER_NAME,
+          contactName: row.contact_name,
+          dueDate: result.date,
+          dueTime: result.time,
+          context: result.context,
+          today: todayInTz(config.TIMEZONE),
+          status,
+        }),
+      );
     }
   }
   await markInboxDone(row.id);
